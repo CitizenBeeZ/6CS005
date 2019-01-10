@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
+#include<time.h>
+#include<pthread.h>
 
 /******************************************************************************
  * This program takes an initial estimate of m and c and finds the associated 
@@ -24,10 +25,17 @@ typedef struct point_t {
   double y;
 } point_t;
 
+
+
+typedef struct arguments_t{
+	int start;
+	int block_size;
+} arguments_t;
+	
 int n_data = 1000;
 point_t data[];
 
-/*int time_difference(struct timespec *start, struct timespec *finish, long long int *difference) {
+int time_difference(struct timespec *start, struct timespec *finish, long long int *difference) {
   long long int ds =  finish->tv_sec - start->tv_sec;
   long long int dn =  finish->tv_nsec - start->tv_nsec;
   if(dn < 0 ) {
@@ -55,32 +63,11 @@ double rms_error(double m, double c) {
   mean = error_sum / n_data;
  
   return sqrt(mean);
-}*/
-
-double line(double m, double x, double c) {
-	double y = (m * x) +c;
-	return y;
 }
 
-int main(int args, char *argv[]) {
-	if (args != 3) {
-		fprintf(stderr, "You need to specify a slope and intercept\n");
-		return 1;
-	}
-
+int main() {
   int i;
-	double slope = (double) atof(argv[1]);
-	double intercept = (double) atof(argv[2]);
-	double x, y;
-
-	printf("x,y\n");
-		for(i=0; i<1000; i++){
-			x=(i /10.0);
-			y = line(slope, x, intercept);
-			printf("%lf, %lf\n", x,y);
-	}
-
-  /*double bm = 1.3;
+  double bm = 1.3;
   double bc = 10;
   double be;
   double dm[8];
@@ -97,6 +84,19 @@ int main(int args, char *argv[]) {
   struct timespec start, finish;
   long long int time_elapsed;
   clock_gettime(CLOCK_MONOTONIC, &start);
+
+  void run_threads() {
+  pthread_t t1, t2;
+  arguments_t t1_arguments;
+  t1_arguments.start = 0;
+  t1_arguments.block_size = 500;
+
+  arguments_t t2_arguments;
+  t2_arguments.start = 500;
+  t2_arguments.block_size = 500;
+
+}
+
 
   be = rms_error(bm, bc);
 
@@ -129,9 +129,10 @@ int main(int args, char *argv[]) {
   clock_gettime(CLOCK_MONOTONIC, &finish);
   time_difference(&start, &finish, &time_elapsed);
   printf("Time elapsed was, %lld,ns or %0.9lf,s\n", time_elapsed,
-         (time_elapsed/1.0e9));*/
+         (time_elapsed/1.0e9));
   return 0;
 }
+
 
 point_t data[] = {
   {67.98,72.86},{72.02,121.49},{82.57,126.11},{73.94,130.07},

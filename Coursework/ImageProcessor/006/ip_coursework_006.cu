@@ -473,7 +473,25 @@ static void key_pressed(unsigned char key, int x, int y) {
   }
 }
 
+int time_difference(struct timespec *start, struct timespec *finish,
+   long long int *difference) {
+   long long int ds = finish->tv_sec - start->tv_sec;
+   long long int dn = finish->tv_nsec - start->tv_nsec;
+
+   if (dn < 0) {
+        ds--;
+	dn += 1000000000;
+   }
+   *difference = ds * 1000000000 + dn;
+   return !(*difference > 0);
+}
+
 int main(int argc, char **argv) {
+  struct timespec start, finish;
+  long long int time_elapsed;
+  
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  int i;
   signal(SIGINT, sigint_callback);
   int n_pixels = width * height;
   for(int q = 0; q< n_pixels; q++){
@@ -498,6 +516,11 @@ int main(int argc, char **argv) {
     printf("%u\n", results[q]);
 
   }
+
+  clock_gettime(CLOCK_MONOTONIC, &finish);
+  time_difference(&start, &finish, &time_elapsed);
+  printf("Time elapsed was %lldns or %0.9lfs\n", time_elapsed,
+  (time_elapsed / 1.0e9));
 
   glutInit(&argc, argv);
   glutInitWindowSize(width * 2,height);
