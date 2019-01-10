@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
+#include <time.h>
+#include <pthread.h>
+#include <malloc.h>
+#include <mpi.h>
+
 
 /******************************************************************************
  * This program takes an initial estimate of m and c and finds the associated 
@@ -11,23 +15,36 @@
  * a gradient search for a minimum in mc-space.
  * 
  * To compile:
- *   cc -o lr_coursework lr_coursework.c -lm
+ *   mpicc -o lr_1622821_mpi lr_1622821_mpi.c -lm
  * 
  * To run:
- *  https://canvas.wlv.ac.uk/calendar ./lr_coursework
+ *  https://canvas.wlv.ac.uk/calendar mpiexec -n 7 ./lr_1622821
  * 
  * Dr Kevan Buckley, University of Wolverhampton, 2018
  *****************************************************************************/
+
+int rank, size;
 
 typedef struct point_t {
   double x;
   double y;
 } point_t;
 
+typedef struct threadArgs {
+  double m;
+  double c;
+  double error;
+} threadArgs;
+
+typedef struct mpidata{
+  double dm;
+  double dc;
+}mpidata;
+
 int n_data = 1000;
 point_t data[];
 
-/*int time_difference(struct timespec *start, struct timespec *finish, long long int *difference) {
+int time_difference(struct timespec *start, struct timespec *finish, long long int *difference) {
   long long int ds =  finish->tv_sec - start->tv_sec;
   long long int dn =  finish->tv_nsec - start->tv_nsec;
   if(dn < 0 ) {
@@ -55,83 +72,94 @@ double rms_error(double m, double c) {
   mean = error_sum / n_data;
  
   return sqrt(mean);
-}*/
-
-double line(double m, double x, double c) {
-	double y = (m * x) +c;
-	return y;
 }
 
-int main(int args, char *argv[]) {
-	if (args != 3) {
-		fprintf(stderr, "You need to specify a slope and intercept\n");
-		return 1;
-	}
+int main() {
+	
 
-  int i;
-	double slope = (double) atof(argv[1]);
-	double intercept = (double) atof(argv[2]);
-	double x, y;
+	  int i;
+	  double bm = 1.3;
+	  double bc = 10;
+	  double be;
+	  double dm[8];
+	  double dc[8];
+	  double e[8];
+	  double step = 0.01;
+	  double best_error = 999999999;
+	  int best_error_i;
+	  int minimum_found = 0;
+	  double er; 
+	   
+	  double om[] = {0,1,1, 1, 0,-1,-1,-1};
+	  double oc[] = {1,1,0,-1,-1,-1, 0, 1};
+  
+  		mpidata dmdc;;
+		
+	MPI_Status status;
+	MPI_Init(NULL, NULL); 
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-	printf("x,y\n");
-		for(i=0; i<1000; i++){
-			x=(i /10.0);
-			y = line(slope, x, intercept);
-			printf("%lf, %lf\n", x,y);
-	}
+	  struct timespec start, finish;
+	  long long int time_elapsed;
+	  clock_gettime(CLOCK_MONOTONIC, &start);
+	    
+	  be = rms_error(bm, bc);
+	 
+	while(!minimum_found) {
+	if (rank == 0) {
+		for(i=0;i<8;i++) {
+			dm[i] = bm + (om[i] * step);
+			dc[i] = bc + (oc[i] * step);    
+		} 
+	 	for(i=1;i<8;i++) {
+		 	printf("Sending i=%d\n", i);
+			dmdc.dm = dm[i];
+			dmdc.dc = dc[i];
+		 	MPI_Send(&dmdc, 2, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+ 		}
+		for(i=1;i<8;i++) {
+		 printf("recieving i=%d\n",i);
+		  MPI_Recv(&e[i], 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status);
+		 	}
+		 e[0] = rms_error(dm[0], dc[0]);
+		    for(i=0;i<8;i++) {
+		      	e[i] = rms_error(dm[i], dc[i]);
+		      	if(e[i] < best_error) {
+					best_error = e[i];
+				best_error_i = i;
+		    	}
+		    	}
 
-  /*double bm = 1.3;
-  double bc = 10;
-  double be;
-  double dm[8];
-  double dc[8];
-  double e[8];
-  double step = 0.01;
-  double best_error = 999999999;
-  int best_error_i;
-  int minimum_found = 0;
- 
-  double om[] = {0,1,1, 1, 0,-1,-1,-1};
-  double oc[] = {1,1,0,-1,-1,-1, 0, 1};
+ printf("best m,c is %lf,%lf with error %lf in direction %d\n",      	dm[best_error_i], dc[best_error_i], best_error, best_error_i);
+		if(best_error < be) {
+		      		be = best_error;
+		      		bm = dm[best_error_i];
+		     		bc = dc[best_error_i];
+		    	} else {
+		      		minimum_found = 1;
+		    	}
+		    	for(i = 1; i < 8; i++) {
+		       		MPI_Send(&minimum_found, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+		    	} 
+		} else {
+		       MPI_Recv(&dmdc, 2 , MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
+		      		 double er = rms_error(dmdc.dm, dmdc.dc);
+		      		 MPI_Send(&er, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+		       	MPI_Recv(&minimum_found, 1 , MPI_INT, 0, 0, MPI_COMM_WORLD, &status); 
+  		}
+ 	}
+	printf("minimum m,c is %lf,%lf with error %lf\n", bm, bc, be);
+	MPI_Finalize();
 
-  struct timespec start, finish;
-  long long int time_elapsed;
-  clock_gettime(CLOCK_MONOTONIC, &start);
-
-  be = rms_error(bm, bc);
-
-  while(!minimum_found) {
-    for(i=0;i<8;i++) {
-      dm[i] = bm + (om[i] * step);
-      dc[i] = bc + (oc[i] * step);    
-    }
-     
-    for(i=0;i<8;i++) {
-      e[i] = rms_error(dm[i], dc[i]);
-      if(e[i] < best_error) {
-        best_error = e[i];
-        best_error_i = i;
-      }
-    }
-
-    printf("best m,c is %lf,%lf with error %lf in direction %d\n",
-      dm[best_error_i], dc[best_error_i], best_error, best_error_i);
-    if(best_error < be) {
-      be = best_error;
-      bm = dm[best_error_i];
-      bc = dc[best_error_i];
-    } else {
-      minimum_found = 1;
-    }
-  }
-  printf("minimum m,c is %lf,%lf with error %lf\n", bm, bc, be);
-
-  clock_gettime(CLOCK_MONOTONIC, &finish);
-  time_difference(&start, &finish, &time_elapsed);
-  printf("Time elapsed was, %lld,ns or %0.9lf,s\n", time_elapsed,
-         (time_elapsed/1.0e9));*/
-  return 0;
+	clock_gettime(CLOCK_MONOTONIC, &finish);
+	time_difference(&start, &finish, &time_elapsed);
+	printf("Time elapsed was, %lldns or %0.9lf,s\n", time_elapsed,
+	 (time_elapsed/1.0e9));
+	
+	return 0;
 }
+
 
 point_t data[] = {
   {67.98,72.86},{72.02,121.49},{82.57,126.11},{73.94,130.07},
