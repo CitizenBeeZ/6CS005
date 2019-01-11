@@ -5,7 +5,7 @@
 #include <GL/gl.h>
 #include <malloc.h>
 #include <signal.h>
-#include <pthread.h>
+#include <mpi.h>
 
 /******************************************************************************
   Displays two grey scale images. On the left is an image that has come from an 

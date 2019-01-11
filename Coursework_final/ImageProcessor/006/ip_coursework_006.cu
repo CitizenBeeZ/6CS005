@@ -25,7 +25,7 @@
       the pixel data type.
     
   To compile adapt the code below wo match your filenames:  
-    cc -o ip_coursework_006 ip_coursework_006.c -lglut -lGL -lm -lpthread
+    nvcc -o ip_coursework_006 ip_coursework_006.cu -lglut -lGL -lm
    
   Dr Kevan Buckley, University of Wolverhampton, 2018
 ******************************************************************************/
