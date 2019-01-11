@@ -18,7 +18,7 @@
  *   mpicc -o lr_1622821_mpi lr_1622821_mpi.c -lm
  * 
  * To run:
- *  https://canvas.wlv.ac.uk/calendar mpiexec -n 7 ./lr_1622821
+ * mpiexec -n 8 ./lr_1622821
  * 
  * Dr Kevan Buckley, University of Wolverhampton, 2018
  *****************************************************************************/

@@ -17,7 +17,7 @@
   If you want to analyse the results then use the redirection operator to send
   output to a file that you can view using an editor or the less utility:
 
-    ./CrackAZ99-With-Data > results.txt
+    mpiexec -n 8 ./CrackAZ99-With-Data-mpi
 
   Dr Kevan Buckley, University of Wolverhampton, 2018
 ******************************************************************************/
